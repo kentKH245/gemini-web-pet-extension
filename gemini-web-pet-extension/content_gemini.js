@@ -53,7 +53,7 @@ function injectAndSubmitPrompt(promptText) {
 function observeGeminiResponse() {
   if (streamObserver) streamObserver.disconnect();
   let lastText = "";
-  let stableCount = 0;
+  let checkAttempts = 0;
 
   streamObserver = new MutationObserver(() => {
     const responses = document.querySelectorAll(
@@ -64,29 +64,33 @@ function observeGeminiResponse() {
     const latestNode = responses[responses.length - 1];
     const currentText = latestNode.innerText.trim();
 
+    // Check if Gemini is still generating (look for stop buttons or loading spinners)
+    const isGenerating = document.querySelector(
+      'button[aria-label*="Stop"], button[aria-label*="停止"], .generating-icon, mat-spinner'
+    );
+
     if (currentText) {
-      if (currentText === lastText) {
-        // Text hasn't changed in this tick; increment stability check
-        stableCount++;
-        // If text remains identical for ~1.5 seconds of polling, generation is done
-        if (stableCount > 6) {
+      if (currentText !== lastText) {
+        lastText = currentText;
+        checkAttempts = 0;
+        // Stream live text chunks while generating
+        chrome.runtime.sendMessage({
+          type: "GEMINI_STREAM",
+          text: currentText,
+          done: false
+        });
+      } else if (!isGenerating) {
+        // Text is static and Gemini's stop/generating indicator is gone
+        checkAttempts++;
+        // Wait a few cycles to ensure generation is fully finished
+        if (checkAttempts > 5) {
           chrome.runtime.sendMessage({
             type: "GEMINI_STREAM",
             text: currentText,
             done: true
           });
           streamObserver.disconnect();
-          return;
         }
-      } else {
-        // Text is actively streaming/updating
-        lastText = currentText;
-        stableCount = 0;
-        chrome.runtime.sendMessage({
-          type: "GEMINI_STREAM",
-          text: currentText,
-          done: false
-        });
       }
     }
   });
@@ -94,6 +98,7 @@ function observeGeminiResponse() {
   streamObserver.observe(document.body, {
     childList: true,
     subtree: true,
-    characterData: true
+    characterData: true,
+    attributes: true
   });
 }
