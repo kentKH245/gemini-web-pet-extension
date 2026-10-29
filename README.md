@@ -43,7 +43,7 @@ git clone [https://github.com/kentKH245/gemini-web-pet-extension.git](https://gi
 4. Click **Load unpacked** in the top-left corner and select your `gemini-web-pet-extension` folder.
 5. Open [gemini.google.com](https://gemini.google.com) in one tab and ensure you are logged in.
 6. Open any other website (e.g., Wikipedia or news sites)—your pet companion will appear in the bottom-left corner!
-*May need to close all tab in the first load.
+*May need to close all tab in the first load and the gemini webpage must be active for the connection.
 
 
 https://github.com/user-attachments/assets/1b808467-fe8d-4e1e-8510-cf5c1576112e
