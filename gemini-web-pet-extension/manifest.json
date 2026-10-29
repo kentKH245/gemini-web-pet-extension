@@ -1,0 +1,36 @@
+{
+  "manifest_version": 3,
+  "name": "Gemini Desktop Pet Companion",
+  "version": "1.0.0",
+  "description": "Summon a customizable desktop pet that bridges directly to your open Gemini tab.",
+  "permissions": [
+    "storage",
+    "unlimitedStorage",
+    "tabs",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://gemini.google.com/*",
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Customize Gemini Pet"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://gemini.google.com/*"],
+      "js": ["content_gemini.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["<all_urls>"],
+      "exclude_matches": ["https://gemini.google.com/*"],
+      "js": ["content_pet.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
