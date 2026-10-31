@@ -1,4 +1,4 @@
-let streamObserver = null;
+let pollTimer = null;
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === "EXECUTE_PROMPT") {
@@ -6,6 +6,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     sendResponse({ ok: true });
   }
 });
+
+function getResponseNodes() {
+  // Prioritize top-level message-content wrapper so we never grab a partial child paragraph
+  const messageContents = document.querySelectorAll("message-content");
+  if (messageContents.length > 0) return messageContents;
+  return document.querySelectorAll(".model-response-text, .markdown");
+}
 
 function injectAndSubmitPrompt(promptText) {
   const editor = document.querySelector(
@@ -20,6 +27,8 @@ function injectAndSubmitPrompt(promptText) {
     });
     return;
   }
+
+  const initialCount = getResponseNodes().length;
 
   editor.focus();
   document.execCommand("selectAll", false, null);
@@ -46,59 +55,64 @@ function injectAndSubmitPrompt(promptText) {
         })
       );
     }
-    observeGeminiResponse();
+    pollGeminiResponse(initialCount);
   }, 250);
 }
 
-function observeGeminiResponse() {
-  if (streamObserver) streamObserver.disconnect();
+function pollGeminiResponse(initialCount) {
+  if (pollTimer) clearInterval(pollTimer);
+
   let lastText = "";
-  let checkAttempts = 0;
+  let stableTicks = 0;
+  let elapsedTicks = 0;
 
-  streamObserver = new MutationObserver(() => {
-    const responses = document.querySelectorAll(
-      "message-content, .model-response-text, .markdown"
-    );
-    if (responses.length === 0) return;
+  pollTimer = setInterval(() => {
+    elapsedTicks++;
+    const nodes = getResponseNodes();
 
-    const latestNode = responses[responses.length - 1];
-    const currentText = latestNode.innerText.trim();
+    // Wait until a new response container appears
+    if (nodes.length <= initialCount && elapsedTicks < 15) return;
+    if (nodes.length === 0) return;
 
-    // Check if Gemini is still generating (look for stop buttons or loading spinners)
-    const isGenerating = document.querySelector(
-      'button[aria-label*="Stop"], button[aria-label*="停止"], .generating-icon, mat-spinner'
+    const latestNode = nodes[nodes.length - 1];
+    // Use innerText with textContent fallback for background tabs
+    const currentText = (latestNode.innerText || latestNode.textContent || "").trim();
+
+    // Detect if Gemini is still actively generating
+    const isGenerating = Boolean(
+      document.querySelector(
+        'button[aria-label*="Stop"], button[aria-label*="停止"], .stop-icon, mat-spinner, [aria-busy="true"]'
+      )
     );
 
     if (currentText) {
       if (currentText !== lastText) {
         lastText = currentText;
-        checkAttempts = 0;
-        // Stream live text chunks while generating
+        stableTicks = 0;
         chrome.runtime.sendMessage({
           type: "GEMINI_STREAM",
           text: currentText,
           done: false
         });
       } else if (!isGenerating) {
-        // Text is static and Gemini's stop/generating indicator is gone
-        checkAttempts++;
-        // Wait a few cycles to ensure generation is fully finished
-        if (checkAttempts > 5) {
+        stableTicks++;
+        // Wait ~4 seconds (10 ticks * 400ms) of unchanged text after stop button disappears
+        if (stableTicks >= 10) {
           chrome.runtime.sendMessage({
             type: "GEMINI_STREAM",
             text: currentText,
             done: true
           });
-          streamObserver.disconnect();
+          clearInterval(pollTimer);
+          pollTimer = null;
         }
       }
     }
-  });
 
-  streamObserver.observe(document.body, {
-    childList: true,
-    subtree: true,
-    characterData: true,
-    attributes: true
-  });
+    // Safety timeout after 2 minutes
+    if (elapsedTicks > 300) {
+      clearInterval(pollTimer);
+      pollTimer = null;
+    }
+  }, 400);
 }
