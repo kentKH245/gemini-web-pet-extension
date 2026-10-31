@@ -24,6 +24,7 @@ gemini-pet-extension/
 ├── background.js         # Service worker & tab message router
 ├── content_gemini.js     # DOM injector & response scraper for Gemini tab
 ├── content_pet.js        # Shadow DOM pet renderer & state machine
+├── gemini_keepawake.js   # Force gemini tab awake
 ├── popup.html            # Extension settings UI
 └── popup.js              # Asset loader & local storage manager
 
@@ -45,8 +46,8 @@ git clone [https://github.com/kentKH245/gemini-web-pet-extension.git](https://gi
 6. Open any other website (e.g., Wikipedia or news sites)—your pet companion will appear in the bottom-left corner!
 ***
 - Reload chrome after your first load
-- The** gemini webpage must be active** for the connection, separate window for the tab would work.
-- The first question may stuck due to inactive status of gemini webpage in the background, switch to the tab will fix the connection.
+- The **gemini webpage must be active** for the connection, separate window for the tab would work.
+- The first question may stuck due to inactive status of gemini webpage in the background, switch to the tab once will fix the connection.
 ***
 
 
